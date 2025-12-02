@@ -29,6 +29,13 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
+# Configuration constants
+MAX_BAR_CHART_ITEMS = 50
+DEFAULT_PLOT_DPI = 150
+LEFT_PANEL_MAX_WIDTH = 400
+LEFT_PANEL_INITIAL_WIDTH = 350
+PLOT_PANEL_INITIAL_WIDTH = 850
+
 
 class DataManager:
     """Manages loaded CSV data and merging operations."""
@@ -195,27 +202,37 @@ class PlotCanvas(FigureCanvas):
                 elif plot_type == "Scatter":
                     self.axes.scatter(x_data, y_data, alpha=alpha, label=y_col)
                 elif plot_type == "Bar":
-                    # For bar plots, limit data points
-                    max_bars = 50
-                    if len(x_data) > max_bars:
-                        x_data = x_data[:max_bars]
-                        y_data = y_data[:max_bars]
-                    width = 0.8 / len(y_columns)
+                    # For bar plots, limit data points and position bars side by side
+                    bar_x_data = x_data
+                    bar_y_data = y_data
+                    if len(bar_x_data) > MAX_BAR_CHART_ITEMS:
+                        bar_x_data = bar_x_data[:MAX_BAR_CHART_ITEMS]
+                        bar_y_data = bar_y_data[:MAX_BAR_CHART_ITEMS]
+                    num_series = len(y_columns)
+                    width = 0.8 / num_series
+                    series_idx = y_columns.index(y_col)
+                    offset = (series_idx - num_series / 2 + 0.5) * width
+                    x_positions = np.arange(len(bar_x_data)) + offset
                     self.axes.bar(
-                        range(len(x_data)), y_data, width=width,
+                        x_positions, bar_y_data, width=width,
                         alpha=alpha, label=y_col
                     )
-                    if y_col == y_columns[0]:
-                        self.axes.set_xticks(range(len(x_data)))
+                    if y_col == y_columns[-1]:
+                        self.axes.set_xticks(np.arange(len(bar_x_data)))
                         self.axes.set_xticklabels(
-                            [str(x)[:10] for x in x_data],
+                            [str(x)[:10] for x in bar_x_data],
                             rotation=45, ha='right'
                         )
                 elif plot_type == "Histogram":
                     self.axes.hist(y_data.dropna(), bins=30, alpha=alpha, label=y_col)
                 elif plot_type == "Area":
+                    # Use x_data if numeric, otherwise use index
+                    if pd.api.types.is_numeric_dtype(x_data):
+                        area_x_data = x_data
+                    else:
+                        area_x_data = range(len(y_data))
                     self.axes.fill_between(
-                        range(len(y_data)), y_data, alpha=alpha, label=y_col
+                        area_x_data, y_data, alpha=alpha, label=y_col
                     )
                 elif plot_type == "Box":
                     # For box plots, collect all y data
@@ -249,7 +266,7 @@ class PlotCanvas(FigureCanvas):
             )
             self.draw()
 
-    def save_plot(self, filepath: str, dpi: int = 150):
+    def save_plot(self, filepath: str, dpi: int = DEFAULT_PLOT_DPI):
         """Save the current plot to a file."""
         self.fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
 
@@ -579,7 +596,7 @@ class MainWindow(QMainWindow):
 
         # Left panel - tabs for file and plot config
         left_panel = QTabWidget()
-        left_panel.setMaximumWidth(400)
+        left_panel.setMaximumWidth(LEFT_PANEL_MAX_WIDTH)
 
         self.file_panel = FilePanel(self.data_manager)
         left_panel.addTab(self.file_panel, "Data")
@@ -611,7 +628,7 @@ class MainWindow(QMainWindow):
         plot_layout.addLayout(save_layout)
 
         splitter.addWidget(plot_panel)
-        splitter.setSizes([350, 850])
+        splitter.setSizes([LEFT_PANEL_INITIAL_WIDTH, PLOT_PANEL_INITIAL_WIDTH])
 
         main_layout.addWidget(splitter)
 
