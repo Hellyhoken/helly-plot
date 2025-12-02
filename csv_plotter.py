@@ -11,7 +11,7 @@ A Python GUI application that allows users to:
 """
 
 import sys
-from typing import Optional
+from typing import Optional, Dict, Tuple, List
 from pathlib import Path
 
 import pandas as pd
@@ -41,19 +41,21 @@ class DataManager:
     """Manages loaded CSV data and merging operations."""
 
     def __init__(self):
-        self.dataframes: dict[str, pd.DataFrame] = {}
+        self.dataframes: Dict[str, pd.DataFrame] = {}
         self.merged_data: Optional[pd.DataFrame] = None
 
-    def load_csv(self, filepath: str) -> tuple[bool, str]:
+    def load_csv(self, filepath: str) -> Tuple[bool, str]:
         """Load a CSV file and store it with a unique name."""
         try:
             df = pd.read_csv(filepath)
-            filename = Path(filepath).name
-            # Ensure unique name
-            base_name = filename
+            path = Path(filepath)
+            stem = path.stem  # filename without extension
+            suffix = path.suffix  # file extension including dot
+            filename = path.name
+            # Ensure unique name by inserting counter before extension
             counter = 1
             while filename in self.dataframes:
-                filename = f"{base_name}_{counter}"
+                filename = f"{stem}_{counter}{suffix}"
                 counter += 1
             self.dataframes[filename] = df
             return True, filename
@@ -67,20 +69,20 @@ class DataManager:
             return True
         return False
 
-    def get_columns(self, name: str) -> list[str]:
+    def get_columns(self, name: str) -> List[str]:
         """Get column names for a specific dataframe."""
         if name in self.dataframes:
             return list(self.dataframes[name].columns)
         return []
 
-    def get_all_columns(self) -> list[str]:
+    def get_all_columns(self) -> List[str]:
         """Get all unique column names across all dataframes."""
         columns = set()
         for df in self.dataframes.values():
             columns.update(df.columns)
         return sorted(list(columns))
 
-    def merge_data(self, merge_type: str, merge_on: Optional[str] = None) -> tuple[bool, str]:
+    def merge_data(self, merge_type: str, merge_on: Optional[str] = None) -> Tuple[bool, str]:
         """Merge all loaded dataframes based on the merge type."""
         if not self.dataframes:
             return False, "No data loaded"
@@ -121,13 +123,13 @@ class DataManager:
         except Exception as e:
             return False, str(e)
 
-    def get_merged_columns(self) -> list[str]:
+    def get_merged_columns(self) -> List[str]:
         """Get columns from merged data."""
         if self.merged_data is not None:
             return list(self.merged_data.columns)
         return []
 
-    def get_numeric_columns(self) -> list[str]:
+    def get_numeric_columns(self) -> List[str]:
         """Get numeric columns from merged data."""
         if self.merged_data is not None:
             return list(self.merged_data.select_dtypes(include=[np.number]).columns)
